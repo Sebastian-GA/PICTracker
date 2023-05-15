@@ -227,10 +227,10 @@ void main(void)
                 if (readGPS(r_buffer)) // Se leen los datos de las coordenadas
                 {
                     // TODO: Hacer calculos de distancia
-                    distance = (1 - cos(lat_rad - lat_horse)) / 2;
+                    distance = sin((lat_rad - lat_horse) / 2);
                     distance *= distance;
-                    distance += cos(lat_horse) * cos(lat_rad) * (1 - cos(lon_rad - lon_horse)) / 2 * (1 - cos(lon_rad - lon_horse)) / 2;
-                    // distance = sqrt(distance);
+                    distance += sin(lat_horse + 1.570796) * sin(lat_rad + 1.570796) * sin((lon_rad - lon_horse) / 2) * sin((lon_rad - lon_horse) / 2);
+                    distance = sqrt(distance);
                     // distance = 2 * 6378.137 * asin(distance);
 
                     float_to_string(lat_deg, txt);
