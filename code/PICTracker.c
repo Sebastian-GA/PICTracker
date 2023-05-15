@@ -8,12 +8,14 @@
 */
 
 // Coordenadas del caballo de Simón Bolivar
-const float lat_horse = 7.137734;
-const float lon_horse = -73.120376;
+const float lat_horse = 7.137734 * 0.017453292;
+const float lon_horse = -73.120376 * 0.017453292;
 
 // Variables de cordenada
 float lat_deg = 0;
+float lat_rad = 0;
 float lon_deg = 0;
+float lon_rad = 0;
 
 // Variables para lectura de datos del gps
 char r_char;
@@ -24,16 +26,69 @@ unsigned short r_flag = 0;
 // Variables para cálculo de distancia
 float distance = 0;
 
-// Detecta si la trama inicia con los caractéres "$GPGGA"
-short checkGPGGA(char *text)
+// -------------------- FUNCIONES CONVERSIÓN -------------------- //
+int char_to_int(char str)
+{
+    return str - '0'; // Ver tabla ASCII
+}
+
+float string_to_float(char *str)
+{
+    float result = 0.0;
+    float sign = 1.0;
+    float decimal = 0.1;
+    int i = 0;
+
+    if (str[0] == '-') // Verifica el signo
+    {
+        sign = -1.0;
+        i++;
+    }
+
+    while (str[i] != '\0') // Recorre los caracteres de la cadena
+    {
+        // Verificar si el carácter es un dígito o un punto decimal
+        if (str[i] >= '0' && str[i] <= '9')
+        {
+            result = result * 10.0 + (float)char_to_int(str[i]);
+        }
+        else if (str[i] == '.')
+        {
+            i++;
+            while (str[i] != '\0') // Procesar los dígitos después del punto decimal
+            {
+                if (str[i] >= '0' && str[i] <= '9')
+                {
+                    result += (float)char_to_int(str[i]) * decimal;
+                    decimal *= 0.1;
+                }
+                else // Carácter inválido, salir de la función con el valor actual
+                {
+                    return result * sign;
+                }
+                i++;
+            }
+            break;
+        }
+        else // Carácter inválido, salir de la función con el valor actual
+        {
+            return result * sign;
+        }
+        i++;
+    }
+
+    return result * sign;
+}
+
+// -------------------- FUNCIONES GPS -------------------- //
+short checkGPGGA(char *text) // Detecta si la trama inicia con los caractéres "$GPGGA"
 {
     if (text[0] == '$' && text[1] == 'G' && text[2] == 'P' && text[3] == 'G' && text[4] == 'G' && text[5] == 'A')
         return 1;
     return 0;
 }
 
-// Convertir la trama de datos en parámetros de GPS
-short readGPS(char *text)
+short readGPS(char *text) // Convierte la trama de datos en parámetros de GPS
 {
     char data_buffer[20];
     float data_minutes;
@@ -56,12 +111,13 @@ short readGPS(char *text)
         k++;
     }
     // Convierte la información de grados y minutos a grados
-    data_minutes = atof(data_buffer + 2);
+    data_minutes = string_to_float(data_buffer + 2);
     data_buffer[2] = 0;
-    lat_deg = atoi(data_buffer) * 1.0 + data_minutes / 60;
+    lat_deg = string_to_float(data_buffer) + data_minutes / 60.0;
     k++;
     if (text[k] == 'S') // Información de dirección N o S
         lat_deg = -lat_deg;
+    lat_rad = lat_deg * 0.017453292; // Convierte a radianes
     k++;
     k++;
 
@@ -73,13 +129,14 @@ short readGPS(char *text)
         data_buffer[j] = 0;
         k++;
     }
-    data_minutes = atof(data_buffer + 3);
+    data_minutes = string_to_float(data_buffer + 3);
     data_buffer[3] = 0;
-    lon_deg = atoi(data_buffer) * 1.0 + data_minutes / 60;
+    lon_deg = string_to_float(data_buffer) * 1.0 + data_minutes / 60;
     k++;
     k++;
     if (text[k] == 'W') // Información de dirección E o W
         lon_deg = -lon_deg;
+    lon_rad = lon_deg * 0.017453292; // Convierte a radianes
     // k++;
     // k++;
 
@@ -110,6 +167,7 @@ void interrupt(void)
 
 void main(void)
 {
+    char txt[15];
     OSCCON = 0xF0;
     TRISA = 0;
     TRISB = 0;
@@ -132,6 +190,14 @@ void main(void)
                 if (readGPS(r_buffer)) // Se leen los datos de las coordenadas
                 {
                     // TODO: Hacer calculos de distancia
+                    distance = (1 - cos(lat_rad - lat_horse)) / 2;
+                    distance *= distance;
+                    distance += cos(lat_horse) * cos(lat_rad) * (1 - cos(lon_rad - lon_horse)) / 2 * (1 - cos(lon_rad - lon_horse)) / 2;
+                    // distance = sqrt(distance);
+                    // distance = 2 * 6378.137 * asin(distance);
+
+                    FloatToStr(lat_deg, txt);
+                    UART1_Write_Text(txt);
                 }
             }
             r_flag = 0; // Se apaga la bandera de llegada.
