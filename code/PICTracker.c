@@ -37,7 +37,7 @@ float string_to_float(char *str)
     float result = 0.0;
     float sign = 1.0;
     float decimal = 0.1;
-    int i = 0;
+    unsigned short i = 0;
 
     if (str[0] == '-') // Verifica el signo
     {
@@ -78,6 +78,43 @@ float string_to_float(char *str)
     }
 
     return result * sign;
+}
+
+void float_to_string(float value, char *str)
+{
+    // Obtener el valor absoluto del número
+    float abs_value = value;
+    float decimal_part;
+    int int_part;
+    unsigned short i = 0, j = 0;
+
+    if (abs_value < 0)
+    {
+        abs_value = -abs_value;
+        str[i] = '-';
+        i++;
+    }
+
+    // Convertir la parte entera a cadena
+    int_part = (int)abs_value;
+    str[i++] = int_part / 100 + '0';       // store hundreds
+    str[i++] = (int_part / 10) % 10 + '0'; // store tens
+    str[i++] = int_part % 10 + '0';        // store ones
+
+    // Agregar el punto decimal
+    str[i++] = '.';
+
+    // Convertir la parte decimal a cadena con la precisión especificada
+    decimal_part = abs_value - (float)int_part;
+    while (j < 6) // Precisión de 6 decimales
+    {
+        decimal_part *= 10;
+        int_part = (int)decimal_part;
+        str[i++] = int_part + '0';
+        decimal_part -= int_part;
+        j++;
+    }
+    str[i] = '\0';
 }
 
 // -------------------- FUNCIONES GPS -------------------- //
@@ -196,7 +233,9 @@ void main(void)
                     // distance = sqrt(distance);
                     // distance = 2 * 6378.137 * asin(distance);
 
-                    FloatToStr(lat_deg, txt);
+                    float_to_string(lat_deg, txt);
+                    UART1_Write_Text(txt);
+                    float_to_string(lon_deg, txt);
                     UART1_Write_Text(txt);
                 }
             }
