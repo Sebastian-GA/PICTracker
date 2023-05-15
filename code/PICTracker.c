@@ -29,7 +29,7 @@ float distance = 0;
 // -------------------- FUNCIONES CONVERSIÓN -------------------- //
 int char_to_int(char str)
 {
-    return str - '0'; // Ver tabla ASCII
+    return str - '0';
 }
 
 float string_to_float(char *str)
@@ -88,18 +88,19 @@ void float_to_string(float value, char *str)
     int int_part;
     unsigned short i = 0, j = 0;
 
-    if (abs_value < 0)
+    if (abs_value < 0.0)
     {
         abs_value = -abs_value;
-        str[i] = '-';
-        i++;
+        str[i++] = '-';
     }
 
     // Convertir la parte entera a cadena
     int_part = (int)abs_value;
-    str[i++] = int_part / 100 + '0';       // store hundreds
-    str[i++] = (int_part / 10) % 10 + '0'; // store tens
-    str[i++] = int_part % 10 + '0';        // store ones
+    if (int_part >= 100)
+        str[i++] = int_part / 100 + '0'; // store hundreds
+    if (int_part >= 10)
+        str[i++] = (int_part / 10) % 10 + '0'; // store tens
+    str[i++] = int_part % 10 + '0';            // store ones
 
     // Agregar el punto decimal
     str[i++] = '.';
@@ -117,8 +118,51 @@ void float_to_string(float value, char *str)
     str[i] = '\0';
 }
 
+float sin_taylor(float x)
+{
+    float resultado = 0.0;
+    float termino = x;
+    float numerador = x;
+    float denominador = 1.0;
+    unsigned short n = 0;
+    const unsigned short n_max = 80;
+
+    for (n = 0; n < n_max; n++)
+    {
+        resultado += termino;
+
+        numerador *= -x * x;
+        denominador *= (2 * n + 2) * (2 * n + 3);
+        termino = numerador / denominador;
+    }
+
+    return resultado;
+}
+
+float asin_taylor(float x)
+{
+    float resultado = x;
+    float termino = x;
+    unsigned short n = 0;
+    const unsigned short n_max = 80;
+
+    if (x > 1.0 || x < 1.0){
+        PORTB.F0 = 1;
+        PORTB.F0 = 0;
+        return 0; // Si el valor de x está fuera del rango válido [-1, 1]
+    }
+
+    for (n = 1; n < n_max; n++)
+    {
+        termino *= (x * x * (2 * n - 1) * (2 * n - 1)) / ((2 * n) * (2 * n + 1));
+        resultado += termino;
+    }
+
+    return resultado;
+}
+
 // -------------------- FUNCIONES GPS -------------------- //
-short checkGPGGA(char *text) // Detecta si la trama inicia con los caractéres "$GPGGA"
+short checkGPGGA(char *text)
 {
     if (text[0] == '$' && text[1] == 'G' && text[2] == 'P' && text[3] == 'G' && text[4] == 'G' && text[5] == 'A')
         return 1;
@@ -170,9 +214,10 @@ short readGPS(char *text) // Convierte la trama de datos en parámetros de GPS
     data_buffer[3] = 0;
     lon_deg = string_to_float(data_buffer) * 1.0 + data_minutes / 60;
     k++;
-    k++;
-    if (text[k] == 'W') // Información de dirección E o W
+    if (text[k] == 'W')
+    {
         lon_deg = -lon_deg;
+    }                                // Información de dirección E o W
     lon_rad = lon_deg * 0.017453292; // Convierte a radianes
     // k++;
     // k++;
@@ -189,8 +234,8 @@ void interrupt(void)
         switch (r_char)
         {
         case 13: // Salto de linea
-            pos = 0;
             r_flag = 1;
+            pos = 0;
             break;
         case 10: // Retroceso
             break;
@@ -226,17 +271,22 @@ void main(void)
             {
                 if (readGPS(r_buffer)) // Se leen los datos de las coordenadas
                 {
-                    // TODO: Hacer calculos de distancia
-                    distance = sin((lat_rad - lat_horse) / 2);
+                    // Hacer calculos de distancia
+                    distance = sin_taylor((lat_rad - lat_horse) / 2);
                     distance *= distance;
-                    distance += sin(lat_horse + 1.570796) * sin(lat_rad + 1.570796) * sin((lon_rad - lon_horse) / 2) * sin((lon_rad - lon_horse) / 2);
+                    distance += sin_taylor(lat_horse + 1.570796) * sin_taylor(lat_rad + 1.570796) * sin_taylor((lon_rad - lon_horse) / 2) * sin_taylor((lon_rad - lon_horse) / 2);
                     distance = sqrt(distance);
-                    // distance = 2 * 6378.137 * asin(distance);
+                    distance = 2 * 6378.137 * asin_taylor(distance);
 
                     float_to_string(lat_deg, txt);
                     UART1_Write_Text(txt);
+                    UART1_Write(13);
                     float_to_string(lon_deg, txt);
                     UART1_Write_Text(txt);
+                    UART1_Write(13);
+                    float_to_string(distance, txt);
+                    UART1_Write_Text(txt);
+                    UART1_Write(13);
                 }
             }
             r_flag = 0; // Se apaga la bandera de llegada.
