@@ -1,5 +1,5 @@
 /*
-    Sistema de rastreo de posición usando un PIC12F1822 y una pantalla Nextion.
+    Sistema de rastreo de posición usando un PIC16F1827 y una pantalla Nextion.
     Si el dispositivo se encuentra por fuera del perímetro permitido se genera
     una alarma en la pantalla.
 
