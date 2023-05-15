@@ -7,23 +7,22 @@
              Sergio Sebastian Oliveros Sepulveda
 */
 
-// TODO: Coordenadas del caballo de Simón Bolivar
-// const float lat_horse;
-// const float lon_horse;
+// Coordenadas del caballo de Simón Bolivar
+const float lat_horse = 7.137734;
+const float lon_horse = -73.120376;
 
 // Variables de cordenada
-char lat_dir = 0;
-short lat_deg = 0;
-float lat_min = 0;
-char lon_dir = 0;
-short lon_deg = 0;
-float lon_min = 0;
+float lat_deg = 0;
+float lon_deg = 0;
 
 // Variables para lectura de datos del gps
 char r_char;
-char r_bufer[100];
+char r_buffer[100];
 unsigned short pos = 0;
 unsigned short r_flag = 0;
+
+// Variables para cálculo de distancia
+float distance = 0;
 
 // Detecta si la trama inicia con los caractéres "$GPGGA"
 short checkGPGGA(char *text)
@@ -36,7 +35,8 @@ short checkGPGGA(char *text)
 // Convertir la trama de datos en parámetros de GPS
 short readGPS(char *text)
 {
-    char data_buffer[50];
+    char data_buffer[20];
+    float data_minutes;
     unsigned short j, k;
 
     k = 7; // Indice donde empieza información de la hora
@@ -47,7 +47,7 @@ short readGPS(char *text)
     if (text[k] == ',') // ERROR: No hay información de GPS
         return 0;
 
-    // Convertir información de Latitud
+    // Información de Latitud
     j = 0;
     while (text[k] != ',')
     {
@@ -55,14 +55,17 @@ short readGPS(char *text)
         data_buffer[j] = 0;
         k++;
     }
-    // TODO: data_buffer --> Información de Latitud
-    // data_buffer[0:2] & data_buffer[2:end]
+    // Convierte la información de grados y minutos a grados
+    data_minutes = atof(data_buffer + 2);
+    data_buffer[2] = 0;
+    lat_deg = atoi(data_buffer) * 1.0 + data_minutes / 60;
     k++;
-    lat_dir = text[k]; // Información de dirección N o S
+    if (text[k] == 'S') // Información de dirección N o S
+        lat_deg = -lat_deg;
     k++;
     k++;
 
-    // Convertir información de Longitud
+    // Información de Longitud
     j = 0;
     while (text[k] != ',')
     {
@@ -70,10 +73,13 @@ short readGPS(char *text)
         data_buffer[j] = 0;
         k++;
     }
-    // TODO: data_buffer --> Información de Longitud
-    // data_buffer[0:3] & data_buffer[3:end]
+    data_minutes = atof(data_buffer + 3);
+    data_buffer[3] = 0;
+    lon_deg = atoi(data_buffer) * 1.0 + data_minutes / 60;
     k++;
-    lon_dir = text[k]; // Información de dirección W o E
+    k++;
+    if (text[k] == 'W') // Información de dirección E o W
+        lon_deg = -lon_deg;
     // k++;
     // k++;
 
@@ -95,8 +101,8 @@ void interrupt(void)
         case 10: // Retroceso
             break;
         default:
-            r_bufer[pos++] = r_char; // Se va formando la cadena de caractéres
-            r_bufer[pos] = 0;        // Se limpia el siguiente byte para establecer el fin de la cadena
+            r_buffer[pos++] = r_char; // Se va formando la cadena de caractéres
+            r_buffer[pos] = 0;        // Se limpia el siguiente byte para establecer el fin de la cadena
             break;
         }
     }
@@ -106,21 +112,24 @@ void main(void)
 {
     OSCCON = 0xF0;
     TRISA = 0;
+    TRISB = 0;
     ANSELA = 0;
+    ANSELB = 0;
+    TRISB.F1 = 1;
 
     PIE1.RCIE = 1;
     INTCON.PEIE = 1;
     INTCON.GIE = 1;
-    UART1_Init(4800);
+    UART1_Init(9600);
 
     // -------------------- LOOP -------------------- //
     while (1)
     {
         if (r_flag) // Se ha recibido una tramas
         {
-            if (checkGPGGA(r_bufer)) // Si la trama empieza con "$GPGGA"
+            if (checkGPGGA(r_buffer)) // Si la trama empieza con "$GPGGA"
             {
-                if (readGPS(r_bufer)) // Se leen los datos de las coordenadas
+                if (readGPS(r_buffer)) // Se leen los datos de las coordenadas
                 {
                     // TODO: Hacer calculos de distancia
                 }
