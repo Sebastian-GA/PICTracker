@@ -1,0 +1,17 @@
+# Ignore files - MikroC PRO for PIC
+*_callertable.txt
+*.ini
+*.bmk
+*.brk
+*.cp
+*.log
+*.dct
+*.dic
+*.dbg
+*.dlt
+*.asm
+*.lst
+
+# Ignore files - Proteus
+Project Backups/
+*.workspace
