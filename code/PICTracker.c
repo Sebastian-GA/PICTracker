@@ -107,7 +107,7 @@ void float_to_string(float value, char *str)
 
     // Convertir la parte decimal a cadena con la precisión especificada
     decimal_part = abs_value - (float)int_part;
-    while (j < 6) // Precisión de 6 decimales
+    while (j < 8) // Precisión de 8 decimales
     {
         decimal_part *= 10;
         int_part = (int)decimal_part;
@@ -118,47 +118,54 @@ void float_to_string(float value, char *str)
     str[i] = '\0';
 }
 
-float sin_taylor(float x)
+float arcsin_newton(float x)
 {
-    float resultado = 0.0;
-    float termino = x;
-    float numerador = x;
-    float denominador = 1.0;
-    unsigned short n = 0;
-    const unsigned short n_max = 80;
+    float approximation = 0.0;
+    float diff = 0.0;
+    float derivative = 0.0;
+    unsigned int n = 0;
 
-    for (n = 0; n < n_max; n++)
+    /* if (x < -1.0 || x > 1.0)  // Nunca pasa en esta aplicación
     {
-        resultado += termino;
+        return 0.0;
+    } */
 
-        numerador *= -x * x;
-        denominador *= (2 * n + 2) * (2 * n + 3);
-        termino = numerador / denominador;
+    while (n <= 500)
+    {
+        diff = sin(approximation) - x;
+
+        if (fabs(diff) < 0.000000001)
+        {
+            return approximation;
+        }
+
+        derivative = cos(approximation);
+        approximation = approximation - diff / derivative;
+
+        n++;
     }
-
-    return resultado;
 }
 
-float asin_taylor(float x)
+float sqrt_newton(float x)
 {
-    float resultado = x;
-    float termino = x;
-    unsigned short n = 0;
-    const unsigned short n_max = 80;
 
-    if (x > 1.0 || x < 1.0){
-        PORTB.F0 = 1;
-        PORTB.F0 = 0;
-        return 0; // Si el valor de x está fuera del rango válido [-1, 1]
-    }
+    float x0 = x;                   // Aproximación inicial
+    float x1 = (x0 + x / x0) / 2.0; // Primera iteración
+    unsigned int n = 0;
 
-    for (n = 1; n < n_max; n++)
+    /* if (x < 0.0)  // Nunca pasa en esta aplicación
     {
-        termino *= (x * x * (2 * n - 1) * (2 * n - 1)) / ((2 * n) * (2 * n + 1));
-        resultado += termino;
+        return 0; // Si el número es negativo, devuelve NaN (Not a Number)
+    } */
+
+    while ((fabs(x1 - x0) > 0.000000001) && (n <= 500))
+    {
+        x0 = x1;
+        x1 = (x0 + x / x0) / 2.0;
+        n++;
     }
 
-    return resultado;
+    return x1;
 }
 
 // -------------------- FUNCIONES GPS -------------------- //
@@ -265,18 +272,18 @@ void main(void)
     // -------------------- LOOP -------------------- //
     while (1)
     {
-        if (r_flag) // Se ha recibido una tramas
+        if (r_flag) // Se ha recibido una trama
         {
             if (checkGPGGA(r_buffer)) // Si la trama empieza con "$GPGGA"
             {
                 if (readGPS(r_buffer)) // Se leen los datos de las coordenadas
                 {
                     // Hacer calculos de distancia
-                    distance = sin_taylor((lat_rad - lat_horse) / 2);
+                    distance = sin((lat_rad - lat_horse) / 2);
                     distance *= distance;
-                    distance += sin_taylor(lat_horse + 1.570796) * sin_taylor(lat_rad + 1.570796) * sin_taylor((lon_rad - lon_horse) / 2) * sin_taylor((lon_rad - lon_horse) / 2);
-                    distance = sqrt(distance);
-                    distance = 2 * 6378.137 * asin_taylor(distance);
+                    distance += cos(lat_horse) * cos(lat_rad) * sin((lon_rad - lon_horse) / 2) * sin((lon_rad - lon_horse) / 2);
+                    distance = sqrt_newton(distance);
+                    distance = 2 * 6378.137 * arcsin_newton(distance);
 
                     float_to_string(lat_deg, txt);
                     UART1_Write_Text(txt);
@@ -284,6 +291,7 @@ void main(void)
                     float_to_string(lon_deg, txt);
                     UART1_Write_Text(txt);
                     UART1_Write(13);
+
                     float_to_string(distance, txt);
                     UART1_Write_Text(txt);
                     UART1_Write(13);
